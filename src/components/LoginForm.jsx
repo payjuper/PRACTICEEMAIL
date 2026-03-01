@@ -1,80 +1,62 @@
 import React, { useState } from 'react';
+import { supabase } from '../supabaseClient';
+import { useNavigate, Link } from 'react-router-dom';
 
 export default function LoginForm() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // Handle login logic here
-    console.log('Login submitted:', { email, password });
-  };
+    const handleLogin = async (e) => {
+        e.preventDefault();
 
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="rounded-md shadow-sm">
-        <div>
-          <label htmlFor="email-address" className="sr-only">
-            Email address
-          </label>
-          <input
-            id="email-address"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-            placeholder="Email address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <div>
-          <label htmlFor="password" className="sr-only">
-            Password
-          </label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
-      </div>
+        // Supabase Auth에 로그인 요청
+        const { error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        });
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <input
-            id="remember-me"
-            name="remember-me"
-            type="checkbox"
-            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-          />
-          <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
-            Remember me
-          </label>
-        </div>
+        if (error) {
+            alert('로그인 실패: 이메일이나 비밀번호를 확인해주세요. (' + error.message + ')');
+        } else {
+            alert('환영합니다!');
+            navigate('/'); // 메인 화면으로 이동
+        }
+    };
 
-        <div className="text-sm">
-          <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500">
-            Forgot your password?
-          </a>
-        </div>
-      </div>
+    return (
+        <form onSubmit={handleLogin} className="w-full max-w-md mx-auto p-8 bg-white border border-gray-200 rounded-xl shadow-sm">
+            <h2 className="text-2xl font-bold mb-6 text-center text-gray-900">로그인</h2>
+            
+            <label className="block mb-4">
+                <span className="text-gray-700 font-semibold">이메일</span>
+                <input 
+                    type="email" 
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                />
+            </label>
 
-      <div>
-        <button
-          type="submit"
-          className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          Log in
-        </button>
-      </div>
-    </form>
-  );
+            <label className="block mb-6">
+                <span className="text-gray-700 font-semibold">비밀번호</span>
+                <input 
+                    type="password" 
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                />
+            </label>
+
+            <button type="submit" className="w-full py-3 bg-indigo-600 text-white font-bold rounded-md hover:bg-indigo-700 transition-colors">
+                로그인
+            </button>
+
+            <div className="mt-4 text-center text-sm text-gray-600">
+                아직 계정이 없으신가요? <Link to="/register" className="text-indigo-600 font-semibold hover:underline">회원가입하기</Link>
+            </div>
+        </form>
+    );
 }
