@@ -20,7 +20,11 @@ const App = () => {
         <Route path="/post/:postId" element={<PostDetailPage />} />
         <Route path="/submit" element={<CreatePostPage />} />
         <Route path="/c/:communityName" element={<CommunityPage />} />
-        <Route path="/user/:username" element={<ProfilePage />} />
+
+        {/* ✅ id-based profile routes (both supported to avoid 404) */}
+        <Route path="/profile/:id" element={<ProfilePage />} />
+        <Route path="/user/:id" element={<ProfilePage />} />
+
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
 
