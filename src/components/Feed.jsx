@@ -2,111 +2,114 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
-export default function Feed() {
+// 💡 authorId를 Prop으로 받습니다. (안 넘겨주면 undefined이 되어 모든 글을 가져옵니다)
+export default function Feed({ authorId }) {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState('');
-  
-  // Link 태그 중첩 에러를 막기 위해 함수형 라우팅 도구 사용
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchProjects();
-  }, []);
+  }, [authorId]); // authorId가 바뀔 때마다 다시 데이터를 불러옵니다.
 
   const fetchProjects = async () => {
     try {
-      // 🚨 핵심 포인트: profiles 테이블까지 한 번에 조인(Join)해서 가져옵니다!
-      const { data, error } = await supabase
+      setLoading(true);
+      
+      // 기본 쿼리 준비
+      let query = supabase
         .from('projects')
-        .select(`
-          *,
-          project_roles ( id, role_name, is_closed ),
-          profiles ( id, school_email )
-        `)
+        .select(`*, project_roles ( id, role_name, is_closed ), profiles ( id, school_email )`)
         .order('created_at', { ascending: false });
+
+      // 🚨 만약 authorId가 전달되었다면, 해당 유저가 쓴 글만 필터링!
+      if (authorId) {
+        query = query.eq('author_id', authorId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setProjects(data || []);
     } catch (err) {
-      console.error('데이터 불러오기 에러:', err.message);
-      setErrorMsg(err.message);
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) return <div className="text-center py-10 font-semibold text-gray-500">프로젝트 불러오는 중...</div>;
-  if (errorMsg) return <div className="text-center py-10 text-red-500">에러: {errorMsg}</div>;
-  if (projects?.length === 0) return <div className="text-center py-10 border border-gray-300 rounded-md bg-white">아직 등록된 프로젝트가 없습니다. 첫 글을 작성해보세요!</div>;
+  if (loading) return <div className="min-h-[200px] flex items-center justify-center font-bold text-[#999990]">Loading projects...</div>;
+
+  if (projects.length === 0) return <div className="py-10 text-center text-[#999990] font-medium border border-dashed border-gray-300 rounded-2xl bg-white">등록된 프로젝트가 없습니다.</div>;
 
   return (
-    <div className="flex flex-col space-y-4 w-full">
-      {projects.map((project) => {
-        // 이메일에서 아이디 부분만 추출 (예: bucky@wisc.edu -> bucky)
-        const authorName = project.profiles?.school_email ? project.profiles.school_email.split('@')[0] : '익명 유저';
-        
-        return (
-          <div 
-            key={project.id} 
-            onClick={() => navigate(`/post/${project.id}`)}
-            className="block border border-gray-200 rounded-xl bg-white p-6 hover:shadow-lg hover:border-indigo-300 transition-all cursor-pointer"
-          >
-            {/* 상단: 작성자 프로필 & 우측 태그/날짜 */}
-            <div className="flex justify-between items-start mb-4">
-              
-              {/* 작성자 프로필 영역 (클릭 시 해당 유저 프로필로 이동) */}
-              <div 
-                onClick={(e) => {
-                  e.stopPropagation(); // 🚨 이벤트 버블링 차단: 상세 페이지로 넘어가는 걸 막음
-                  navigate(`/user/${authorName}`); // App.jsx에 설정된 프로필 라우터로 이동
-                }}
-                className="flex items-center space-x-3 group"
-              >
-                <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-lg group-hover:bg-indigo-200 transition-colors">
-                  {authorName[0].toUpperCase()}
+    <div className="font-['DM_Sans',_sans-serif] w-full">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Syne:wght@700&display=swap');
+        .rise { animation: rise 0.6s cubic-bezier(0.22,1,0.36,1) both; }
+        @keyframes rise { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+        {projects.map((project, i) => {
+          const author = project.profiles?.school_email?.split('@')[0] || '익명 유저';
+          const techStacksArray = project.tech_stacks ? project.tech_stacks.split(',').map(tech => tech.trim()) : [];
+
+          return (
+            <div 
+              key={project.id} 
+              onClick={() => navigate(`/post/${project.id}`)}
+              className="bg-[#FFFFFF] border border-[#E8E5E0] rounded-2xl p-6 hover:-translate-y-1 hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between rise"
+              style={{ animationDelay: `${0.1 + (i * 0.05)}s` }}
+            >
+              <div>
+                <div className="flex justify-between items-start mb-4">
+                  <span className="px-3 py-1 bg-gray-100 text-[#111111] text-xs font-bold rounded-full border border-[#E8E5E0]">
+                    {project.category_tag}
+                  </span>
+                  <span className="text-xs text-[#999990] font-medium">{new Date(project.created_at).toLocaleDateString()}</span>
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
-                    {authorName}
-                  </p>
-                  <p className="text-xs text-gray-500">Wisc Student</p>
+                <h2 className="text-xl font-bold text-[#111111] mb-2 font-['Syne',_sans-serif] leading-tight line-clamp-2">
+                  {project.title}
+                </h2>
+                <div className="text-[#999990] text-sm mb-5 flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] text-indigo-700 font-bold">
+                    {author[0].toUpperCase()}
+                  </div>
+                  {author}
                 </div>
+
+                {techStacksArray.length > 0 && (
+                  <div className="mb-5">
+                    <div className="flex flex-wrap gap-2">
+                      {techStacksArray.slice(0, 3).map((tech, idx) => (
+                        <span key={idx} className="px-2 py-1 text-xs font-bold rounded-md bg-[#F4F2EF] text-[#111111] border border-[#E8E5E0]">
+                          {tech}
+                        </span>
+                      ))}
+                      {techStacksArray.length > 3 && <span className="text-xs text-gray-400 font-bold self-center">+{techStacksArray.length - 3}</span>}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* 우측: 카테고리 태그 및 날짜 */}
-              <div className="flex flex-col items-end">
-                <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-extrabold rounded-full border border-indigo-100 mb-1">
-                  {project.category_tag}
-                </span>
-                <span className="text-xs text-gray-400">
-                  {new Date(project.created_at).toLocaleDateString()}
-                </span>
+              <div className="pt-4 border-t border-[#E8E5E0]">
+                <p className="text-xs font-bold text-[#999990] uppercase tracking-wider mb-2">Open Roles</p>
+                <div className="flex flex-wrap gap-2">
+                  {project.project_roles?.map(role => (
+                    <span key={role.id} className={`px-2 py-1 text-xs font-semibold rounded-md ${role.is_closed ? 'bg-gray-100 text-[#999990] line-through' : 'bg-[#FFF0F0] text-[#E14141]'}`}>
+                      {role.role_name}
+                    </span>
+                  ))}
+                  {(!project.project_roles || project.project_roles.length === 0) && (
+                    <span className="text-xs text-[#999990]">No roles specified</span>
+                  )}
+                </div>
               </div>
             </div>
-
-            {/* 중단: Content를 삭제하고 Title만 깔끔하게 강조 */}
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">{project.title}</h2>
-
-            {/* 하단: 모집 직군 뱃지 리스트 */}
-            <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-100 items-center">
-              <span className="text-xs text-gray-500 font-bold mr-1">모집 중:</span>
-              {project.project_roles && project.project_roles.map(role => (
-                <span 
-                  key={role.id} 
-                  className={`px-3 py-1 text-xs font-semibold rounded-md border ${
-                    role.is_closed 
-                      ? 'bg-gray-100 text-gray-400 border-gray-200' 
-                      : 'bg-green-50 text-green-700 border-green-200'
-                  }`}
-                >
-                  {role.role_name} {role.is_closed && '(마감)'}
-                </span>
-              ))}
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
