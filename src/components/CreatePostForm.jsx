@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
 
@@ -9,6 +9,18 @@ export default function CreatePostForm() {
     const [roles, setRoles] = useState(['']); // 직군 입력창들을 담는 배열
     
     const navigate = useNavigate();
+
+    // 🚨 강력한 자물쇠 (Route Guard): 화면 켜질 때 비로그인 유저 차단 🚨
+    useEffect(() => {
+        const checkAuth = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                alert('팀원 모집글을 작성하려면 반드시 로그인이 필요합니다!');
+                navigate('/login'); // 비회원이면 로그인 페이지로 쫓아냄
+            }
+        };
+        checkAuth();
+    }, [navigate]);
 
     // 직군 입력창 내용 변경 핸들러
     const handleRoleChange = (index, value) => {
@@ -28,6 +40,18 @@ export default function CreatePostForm() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         
+        // 1. 현재 로그인된 유저의 세션(신분증) 가져오기
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        // 만약 글 쓰는 도중에 로그아웃이 되었다면 차단
+        if (!session) {
+            alert('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
+            navigate('/login');
+            return;
+        }
+
+        const userId = session.user.id; // 현재 접속 중인 유저의 고유 ID 추출
+
         // 빈 직군 입력값 제거
         const validRoles = roles.filter(role => role.trim() !== '');
         if (validRoles.length === 0) {
@@ -35,11 +59,15 @@ export default function CreatePostForm() {
             return;
         }
 
-        // 1. projects 테이블에 본문 데이터 삽입
-        // .select()를 붙여야 방금 생성된 프로젝트의 ID를 돌려받을 수 있습니다. (매우 중요!)
+        // 2. projects 테이블에 본문 + "작성자 ID(author_id)" 데이터 삽입
         const { data: projectData, error: projectError } = await supabase
             .from('projects')
-            .insert([{ title, content, category_tag: categoryTag }])
+            .insert([{ 
+                title: title, 
+                content: content, 
+                category_tag: categoryTag,
+                author_id: userId // 🚨 핵심: 누가 썼는지 DB에 명시 🚨
+            }])
             .select(); 
 
         if (projectError) {
@@ -50,7 +78,7 @@ export default function CreatePostForm() {
 
         const newProjectId = projectData[0].id; // 방금 생성된 프로젝트의 ID
 
-        // 2. project_roles 테이블에 직군 데이터들 삽입 (One-to-Many 관계 매핑)
+        // 3. project_roles 테이블에 직군 데이터들 삽입 (One-to-Many 관계 매핑)
         const rolesToInsert = validRoles.map(roleName => ({
             project_id: newProjectId,
             role_name: roleName
